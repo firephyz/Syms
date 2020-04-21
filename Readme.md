@@ -6,6 +6,12 @@ be coded as operations on the lists.
 Functions are also a struggle, how to implement functions as symbolic manipulations
 rather than as primitives.
 
+Obsolete things can be marked with the archaic property to make the compiler issue a warning.
+
+Compiler to use annotations where necessary to optimize and prove functionality.
+Compiler can output adjusted source with derived types and such (what do
+  functions return, etc.)
+
 Things without definitions are axioms.
 
 Every statement (atom or grouping of atoms) can be annotated with
@@ -19,21 +25,26 @@ has = related member
 which = constrain type (how to define this?)
 
 get is function which self evaluates its argument. Argument have fetchable property
-from sort of places its first argument into the second argument
+from sort of gets its first argument from the second argument
 
 
 (function is
 
-(find is (function ))
-
-(package is (list of ...)    (comment what is a thing though?)
-  (has (search path item) which is
-         (procedure (comment (use (find from (package search verbs))))
-                    (box is (get path))
-                    (item from box))))
+(collection is (abstract ))
+(is is ((function which
+          (has property infix))
+        [of] word statement) which is
+  (procedure (vocab store word statement)))
+(vocab is (collection of definition)    (comment what is a thing though?)
+  (has (function path item) which is
+    (procedure (comment (use (find from (vocab search verbs))))
+               (box is (get path))
+               (item from box)))
+  (has (function store word statement) which is
+    ()))
 
 (number is (list of digits)
-  (has (add y) from (package search (arithmetic operations))
+  (has (add y) from (vocab search (arithmetic operations))
 
 (digits
   (0)
