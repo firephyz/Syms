@@ -27,24 +27,36 @@ which = constrain type (how to define this?)
 get is function which self evaluates its argument. Argument have fetchable property
 from sort of gets its first argument from the second argument
 
+(has is (function which ))
+(from is (function which
+           (has property infix)))
 
-(function is
+(collection
+  (has ))
 
-(collection is (abstract ))
+abstract
+(function is abstract
+  (use lib from library (syntax function))
+  (has signature defaults )
+  (has property match-method from lib)
+    defaults ))
+
 (is is ((function which
-          (has property infix))
-        [of] word statement) which is
-  (procedure (vocab store word statement)))
-(vocab is (collection of definition)    (comment what is a thing though?)
-  (has (function path item) which is
-    (procedure (comment (use (find from (vocab search verbs))))
+          (has signature (word statement))
+          (has property infix from (library (syntax function match-methods)))) which is
+  (procedure (library store word statement))))
+
+(library is (collection of definition)    (comment what is a thing though?)
+  (has (function search path item) which is
+    (procedure (comment (use (find from (library verbs))))
                (box is (get path))
-               (item from box)))
+               (definition from box)))
   (has (function store word statement) which is
-    ()))
+    ())
+  (has property callable search))
 
 (number is (list of digits)
-  (has (add y) from (vocab search (arithmetic operations))
+  (has (add y) from (library (arithmetic operations))
 
 (digits
   (0)
