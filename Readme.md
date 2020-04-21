@@ -16,10 +16,21 @@ is = definition
 of = instance relation
 has = related member
 (has property) = related trait
-which = constrain type
+which = constrain type (how to define this?)
+
+get is function which self evaluates its argument. Argument have fetchable property
+from sort of places its first argument into the second argument
+
+
+(function is
+
+(find is (function ))
 
 (package is (list of ...)    (comment what is a thing though?)
-  (has (search path) from )
+  (has (search path item) which is
+         (procedure (comment (use (find from (package search verbs))))
+                    (box is (get path))
+                    (item from box))))
 
 (number is (list of digits)
   (has (add y) from (package search (arithmetic operations))
