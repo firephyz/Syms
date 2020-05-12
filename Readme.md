@@ -11,6 +11,7 @@ Obsolete things can be marked with the archaic property to make the compiler iss
 Compiler to use annotations where necessary to optimize and prove functionality.
 Compiler can output adjusted source with derived types and such (what do
   functions return, etc.)
+Compiler can utilize source location to automatically propagate refactorizations.
 
 Things without definitions are axioms.
 

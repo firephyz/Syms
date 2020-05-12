@@ -1,0 +1,59 @@
+(comment
+  things which annotate include...
+  is = definition
+  of = instance relation
+  has = related member
+  implements specifies the function for a trait
+  (has property) = related trait
+  which = constrain type (how to define this?) or instantiates template.
+    General idea...
+
+  get is function which self evaluates its argument. Argument have fetchable property
+  from sort of gets its first argument from the second argument)
+
+(has is (function which ))
+(from is (function which
+           (has property infix)))
+
+(collection
+  (has ))
+
+(comment is string
+  (has property
+    ((parse (has property from_tokens)) which
+      (implements from_tokens
+        ((function which
+           (has signature ())
+
+abstract
+(function is abstract
+  (use lib from library (syntax function))
+  (has signature defaults )
+  (has property match-method from lib)
+    defaults ))
+
+(is is ((function which
+          (has signature (word statement))
+          (has property infix from (library (syntax function match-methods)))) is
+  (procedure (library store word statement))))
+
+(library is (collection of definition)    (comment what is a thing though?)
+  (has member search (function path item) is
+    (procedure (comment (use (find from (library verbs))))
+               (box is (get path))
+               (definition from box)))
+  (has member store (function word statement) is
+    ())
+  (has property callable search))
+
+(number is (list of digits)
+  (has (add y) from (library (arithmetic operations))
+
+(digits
+  (0)
+  (1 suc(0))
+  (2 suc(1))
+  (9 suc(8))
+(add x y)
+  (if (= (size ) 1)
+      ((get x -1)
