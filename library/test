@@ -1,0 +1,35 @@
+is defines new terms
+of instantiates a type parameter
+implements specifies a trait implemented by an idea
+  as specifies the implementation
+has specifies a property pertaining to an idea
+where backward specifies an idea
+
+"x of y" is equivalent to
+"constrains (x ...) to y"
+  where the latter specifies parameters by position
+  and the former by name
+
+constraining "things" are closed under "and"
+  i.e. map of (string and integer)
+
+arithmetic is
+
+digit is (type digit-syms)
+  where digit-syms is (map (range 0 9) (func (digit) (digit to symbol)))
+
+
+number is list
+  constrains (list element) to digit of base
+
+  has base
+
+  implements can-add from library (arithmetic field) as
+    add is (func (x) ())
+  implements can-subtract from library (arithmetic field) as
+    subtract is (func (x) ())
+  implements can-equal from library (arithmetic field) as
+    equals is (func (x)
+      (let (zipped-num (zip self x))
+        (and (ok (zipped-num))
+             (reduce and (map (zip self x) (func ((a b)) (equals a b)))))))
