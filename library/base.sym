@@ -1,12 +1,12 @@
 (comment
   things which annotate include...
   is = definition
-  of = instance relation
+  of = instance relation, instantiates template
   has = related member
   implements specifies the function for a trait
   (has property) = related trait
-  which = constrain type (how to define this?) or instantiates template.
-    General idea...
+  which = constrain type (how to define this?).
+    Infix, applies rhs properties to lhs
 
   get is function which self evaluates its argument. Argument have fetchable property
   from sort of gets its first argument from the second argument)
@@ -47,7 +47,31 @@ abstract
   (has property callable search))
 
 (number is (list of digits)
-  (has (add y) from (library (arithmetic operations))
+  (implements add from (library (arithmetic operations))
+    (has member add (function y) is
+      ())))
+
+is
+  number
+  which
+    of
+      list
+      digits
+    implements
+      from
+        add
+        library
+          arithmetic operations
+      which
+        has member
+          which
+            add
+            is
+              function y
+              ...
+
+
+
 
 (digits
   (0)

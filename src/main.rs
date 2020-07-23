@@ -1,51 +1,63 @@
+#![feature(fn_traits)]
+#![feature(unboxed_closures)]
+
 use std::io;
-use std::vec::Vec;
+use std::string::String;
 
-struct Topic {
-    name: String,
-    body: Option<int>,
+extern crate syms;
+
+// use syms::ast::SourceAST;
+//
+// fn main() {
+//     let stdin = io::stdin();
+//
+//     let ast = SourceAST::from("(test (ing syms))");
+//
+//     // let mut string = String::new();
+//     // match stdin.read_line(&mut string) {
+//     //     Ok(n) => { println!("Read {} bytes.\nString: {}", n, string); },
+//     //     Err(e) => { println!("Error: {}", e); },
+//     // };
+//     println!("{:?}", &ast);
+// }
+
+use std::ops::FnMut;
+
+use syms::allocator::*;
+use syms::allocator::handle::AllocHandle;
+
+struct closure<'a> {
+    reference: &'a mut AllocatorInstance,
 }
 
-impl Topic {
-    pub fn new(name: String topic: Some<Topic>) {
-        Topic {
-            name: name,
-            body: match topic {
-                Some(t) => ,
-                None => None,
-            }
-        }
+impl<'a> FnMut<(u32,)> for closure<'a> {
+    extern "rust-call" fn call_mut(&mut self, args: (u32,)) -> Self::Output {
+        self.call_once(args)
     }
 }
 
-enum TopicType {
-    BuiltinFunction(function),
-}
-
-struct InitLibrary {
-    topics: Vec<Topic>,
-}
-
-impl InitLibrary {
-    pub fn new -> Self {
-        Library {
-            topics: Vec::new(),
-        }
+impl<'a> FnOnce<(u32,)> for closure<'a> {
+    type Output = AllocHandle<'a, AllocSymbol, SymbolAllocator>;
+    extern "rust-call" fn call_once(self, args: (u32,)) -> Self::Output {
+        self.reference.allocate(format!("Symbol-{}", args.0).as_str()).unwrap()
     }
-
-    pub fn insert(name: String, topic: Some<Topic>) {
-        self.topics.push(Topic::new(name, topic));
-    }
-}
-
-fn topic_is(ast: AST) {
-
 }
 
 fn main() {
-    let library = InitLibrary::new();
-    library.insert("abstract", None);
-    library.insert("is", TopicType::BuiltinFunction(topic_is))
+    let mut alloc = AllocatorInstance::new();
+    let testing1 = &mut alloc;
+    // let clos = closure { reference: &mut alloc, };
+    // let clos_actual = |num: u32| {
+    //     testing1.allocate(format!("Symbol-{}", num).as_str()).unwrap()
+    // };
+    // let symbols = (1..5).map(clos).collect::<Vec<AllocHandle<AllocSymbol>>>();
+    let symbols = vec![alloc.allocate(format!("Symbol-1").as_str()).unwrap()];
 
-    let stdin = io::stdin();
+    // symbols.append(&mut (4..5).map(|num| {
+    //             alloc.allocate(format!("Symbol-{}", num).as_str()).unwrap()
+    //         }).collect::<Vec<AllocHandle<AllocSymbol>>>());
+
+    for symbol in &symbols {
+        println!("{:?}", symbol);
+    }
 }

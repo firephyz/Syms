@@ -16,20 +16,23 @@ constraining "things" are closed under "and"
 arithmetic is
 
 digit is (type digit-syms)
-  where digit-syms is (map (range 0 9) (func (digit) (digit to symbol)))
-
+  where digit-syms is (map (range 0 9)
+    (func (digit) (digit to symbol)))
 
 number is list
   constrains (list element) to digit of base
 
   has base
 
-  implements can-add from library (arithmetic field) as
+  implements field from library arithmetic as
+    add is
     add is (func (x) ())
-  implements can-subtract from library (arithmetic field) as
-    subtract is (func (x) ())
-  implements can-equal from library (arithmetic field) as
+    sub is (func (x)
+	  (let (nums ((sort-by greatest) length (list self x)))
+	       (append ((nums index 0 length) sub (nums index 1 length) zeros))
+	    (map ))
     equals is (func (x)
       (let (zipped-num (zip self x))
-        (and (ok (zipped-num))
-             (reduce and (map (zip self x) (func ((a b)) (equals a b)))))))
+        ((zipped-num ok) and
+          (reduce-by and
+		    (map zipped-num (func ((a b)) (equals a b)))))))
