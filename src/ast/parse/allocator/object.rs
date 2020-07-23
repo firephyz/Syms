@@ -1,13 +1,9 @@
-use std::vec::Vec;
 use std::default::Default;
 use std::clone::Clone;
-use std::ops::{Drop, Deref};
-use std::cell::{Cell, RefCell};
-use std::rc::Weak;
-use std::fmt::{Debug, Formatter};
-
-extern crate static_assertions;
-use static_assertions::const_assert;
+use std::ops::Deref;
+use std::cell::Cell;
+use std::fmt::Debug;
+use std::marker::Sized;
 
 use super::Allocator;
 
@@ -20,26 +16,24 @@ pub trait RefCount {
     fn ref_count(&self) -> u32;
 }
 
-pub trait Allocable {
+pub(super) trait Allocable {
+    type Alloc<'a>: Allocator<'a, Self>;
     type InitData<'a>;
 
-    fn init<'f>(data: Self::InitData<'f>) -> Self;
+    fn init(data: Self::InitData<'_>) -> Self where Self: Sized;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Objects to be allocated. Reference counted for garbage collection.
 ///////////////////////////////////////////////////////////////////////////////
 #[derive(Debug)]
-pub struct AllocObject<T> {
+pub(super) struct AllocObject<T> {
     obj: T,
     count: Cell<u32>,
 }
 
-impl<T: Allocable> Allocable for AllocObject<T> {
-    type InitData<'a> = <T as Allocable>::InitData<'a>;
-    //type Handle<'a> = AllocHandle<'a, A>;
-
-    fn init<'f>(data: Self::InitData<'f>) -> Self {
+impl<T: Allocable> AllocObject<T> {
+    fn new(data: T::InitData<'_>) -> Self {
         AllocObject {
             obj: T::init(data),
             count: Cell::new(0),

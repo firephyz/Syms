@@ -5,6 +5,7 @@
 #![feature(const_fn)]
 #![feature(associated_type_defaults)]
 
-pub mod ast;
+#![feature(unboxed_closures)]
+#![feature(fn_traits)]
 
-pub use ast::parse::allocator;
+pub mod ast;

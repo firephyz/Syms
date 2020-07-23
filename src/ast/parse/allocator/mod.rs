@@ -1,44 +1,68 @@
-use std::vec::Vec;
 use std::default::Default;
 use std::mem::MaybeUninit;
-use std::ptr::NonNull;
 use std::clone::Clone;
 use std::collections::HashMap;
-use std::rc::Rc;
-use std::cell::RefCell;
 use string_cache::DefaultAtom;
 
 //use crate::ast::SourceAST;
 
 mod object;
 pub mod handle;
-pub use object::{Allocable, AllocObject};
+use object::Allocable;
+use object::AllocObject;
 use object::{RefCount};
 use handle::AllocHandle;
 
 // Global allocator
-pub static mut ALLOC : Option<AllocatorInstance> = None;
+static mut ALLOC : Option<AllocatorInstance> = None;
+
+fn get_allocator<'a>() -> &'a mut AllocatorInstance {
+    unsafe {
+        if ALLOC.is_none() {
+            unsafe {
+                ALLOC = Some(AllocatorInstance::new());
+            }
+        };
+
+        unsafe { ALLOC.as_mut().unwrap() }
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Allocator trait that implements allocating general objects.
 // Allocates Object handles that originate from Alloc.
 ///////////////////////////////////////////////////////////////////////////////
-pub trait Allocator<'h, 'a: 'h, Object, Alloc: 'a>
-  where Object: Allocable
+trait Allocator<'a, Obj>
+  where Obj: Allocable + ?Sized
 {
     //type InitData = <Object as Allocable>::InitData;
     //type Handle = AllocHandle<'h, Object, Alloc>;
-    type Handle;
+    type Object: Allocable;
+    type Handle<'h>;//: AllocHandleTrait<Self::Object::Allocator>;
     type Error;
 
-    fn allocate<'f>(&mut self, data: <Object as Allocable>::InitData<'f>) -> Result<Self::Handle, Self::Error>;
-    fn deallocate(&mut self, item: Self::Handle);
+    fn allocate(&mut self, data: <Self::Object as Allocable>::InitData<'_>) -> Result<Self::Handle<'a>, Self::Error>;
+    fn deallocate(&mut self, item: Self::Handle<'a>);
 }
+
+#[derive(Debug)]
+pub(super) struct AllocSymbol<'a> {
+    handle: AllocHandle<'a, Symbol, SymbolAllocator>,
+}
+
+impl AllocSymbol<'_> {
+    pub fn new(string: &str) -> Result<Self, AllocError> {
+        Ok(AllocSymbol {
+            handle: unsafe { get_allocator().allocate(string)? },
+        })
+    }
+}
+//pub type AllocBranch<'a> = AllocHandle<'a, Branch, BranchAllocator>;
 
 ///////////////////////////////////////////////////////////////////////////////
 // General object allocator
 ///////////////////////////////////////////////////////////////////////////////
-pub struct AllocatorInstance {
+struct AllocatorInstance {
     symbols: SymbolAllocator,
 //    branches: BranchAllocator,
 }
@@ -51,7 +75,7 @@ impl AllocatorInstance {
         }
     }
 
-    // pub fn allocate_symbol(&mut self, string: &str) -> Result<AllocHandle<AllocSymbol>, AllocError> {
+    // pub fn allocate_symbol(&mut self, string: &str) -> Result<AllocHandle<Symbol>, AllocError> {
     //     self.symbols.allocate(string as *const str)
     // }
 
@@ -61,31 +85,32 @@ impl AllocatorInstance {
     // }
 }
 
-impl<'h, 'a: 'h> Allocator<'h, 'a, AllocSymbol, SymbolAllocator> for AllocatorInstance {
-    //type InitData = <AllocSymbol as Allocable>::InitData;
-    type Handle = AllocHandle<'h, AllocSymbol, SymbolAllocator>;
+impl<'a> Allocator<'a, Symbol> for AllocatorInstance {
+    //type InitData = <Symbol as Allocable>::InitData;
+    type Object = Symbol;
+    type Handle<'h> = AllocHandle<'h, Symbol, <Symbol as Allocable>::Alloc<'h>>;
     type Error = AllocError;
 
-    fn allocate<'f>(&mut self, data: <AllocSymbol as Allocable>::InitData<'f>) -> Result<Self::Handle, Self::Error> {
+    fn allocate(&mut self, data: <Symbol as Allocable>::InitData<'_>) -> Result<Self::Handle<'a>, Self::Error> {
         self.symbols.allocate(data)
     }
 
-    fn deallocate(&mut self, item: Self::Handle) {
+    fn deallocate(&mut self, item: Self::Handle<'a>) {
         self.symbols.deallocate(item)
     }
 }
 
-//trait AllocSymbolAllocator = Allocator<AllocSymbol>;
+//trait SymbolAllocator = Allocator<Symbol>;
 
-// impl Allocator<AllocSymbol> for AllocatorInstance {
+// impl Allocator<Symbol> for AllocatorInstance {
 //     type InitData = *const str;
 //     type Error = AllocError;
 //
-//     fn allocate(&mut self, data: Self::InitData) -> Result<AllocHandle<AllocSymbol>, Self::Error> {
+//     fn allocate(&mut self, data: Self::InitData) -> Result<AllocHandle<Symbol>, Self::Error> {
 //         self.symbols.allocate(data)
 //     }
 //
-//     fn deallocate(&mut self, item: &mut AllocSymbol) {
+//     fn deallocate(&mut self, item: &mut Symbol) {
 //         self.symbols.deallocate(item)
 //     }
 // }
@@ -116,11 +141,11 @@ pub enum AllocError {
 // Allocator for symbols
 ////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug)]
-pub struct AllocSymbol {
+pub struct Symbol {
     atom: MaybeUninit<DefaultAtom>,
 }
 
-impl Clone for AllocSymbol {
+impl Clone for Symbol {
     fn clone(&self) -> Self {
         // Convert self.atom into &[u8] slice
         const size : usize = std::mem::size_of::<MaybeUninit<DefaultAtom>>();
@@ -137,13 +162,13 @@ impl Clone for AllocSymbol {
             MaybeUninit::new(unsafe {self.atom.get_ref().clone()})
         };
 
-        AllocSymbol {
+        Symbol {
             atom: atom,
         }
     }
 }
 
-impl Drop for AllocSymbol {
+impl Drop for Symbol {
     fn drop(&mut self) {
         unsafe {
             std::mem::drop(self.atom.get_mut());
@@ -152,20 +177,20 @@ impl Drop for AllocSymbol {
 }
 
 // Zero out atom as default so clone knows if it's initialized or not
-impl Default for AllocSymbol {
+impl Default for Symbol {
     fn default() -> Self {
-        AllocSymbol {
+        Symbol {
             atom: MaybeUninit::zeroed(),
         }
     }
 }
 
-impl Allocable for AllocSymbol {
-    //type InitData = NonNull<str>;
+impl Allocable for Symbol {
+    type Alloc<'a> = SymbolAllocator;
     type InitData<'a> = &'a str;
 
-    fn init<'f>(data: Self::InitData<'f>) -> Self {
-        AllocSymbol {
+    fn init(data: Self::InitData<'_>) -> Self {
+        Symbol {
             atom: MaybeUninit::new(unsafe { DefaultAtom::from(data) }),
         }
     }
@@ -173,7 +198,7 @@ impl Allocable for AllocSymbol {
 
 ///////////////////////////////////////////////////////////////////////////////
 pub struct SymbolAllocator {
-    cells: Vec<AllocObject<AllocSymbol>>,
+    cells: Vec<AllocObject<Symbol>>,
     free: Vec<usize>,
     used: Vec<usize>,
     num_dead: u32,
@@ -183,7 +208,7 @@ pub struct SymbolAllocator {
 impl SymbolAllocator {
     fn new(count: usize) -> Self {
         SymbolAllocator {
-            cells: vec![AllocObject::<AllocSymbol>::default(); count],
+            cells: vec![AllocObject::<Symbol>::default(); count],
             free: (0..(count-1)).collect::<Vec<usize>>(),
             used: Vec::new(),
             num_dead: 0,
@@ -216,16 +241,17 @@ impl SymbolAllocator {
         self.num_dead = 0;
     }
 
-    // fn get_handle<'a>(&'a self, index: usize) -> AllocHandle<'a, AllocSymbol> {
+    // fn get_handle<'a>(&'a self, index: usize) -> AllocHandle<'a, Symbol> {
     //     AllocHandle::new(&self, index)
     // }
 }
 
-impl<'h, 'a: 'h> Allocator<'h, 'a, AllocSymbol, Self> for SymbolAllocator {
-    type Handle = AllocHandle<'h, AllocSymbol, SymbolAllocator>;
+impl<'a> Allocator<'a, Symbol> for SymbolAllocator {
+    type Object = Symbol;
+    type Handle<'h> = AllocHandle<'h, Symbol, SymbolAllocator>;
     type Error = AllocError;
 
-    fn allocate<'f>(&mut self, data: <AllocSymbol as Allocable>::InitData<'f>) -> Result<Self::Handle, Self::Error> {
+    fn allocate(&mut self, data: <Symbol as Allocable>::InitData<'_>) -> Result<Self::Handle<'a>, Self::Error> {
         Err(AllocError::SymbolCap)
         // // Get atom for the symbol string
         // let atom = unsafe { DefaultAtom::from(&*data) };
@@ -254,7 +280,7 @@ impl<'h, 'a: 'h> Allocator<'h, 'a, AllocSymbol, Self> for SymbolAllocator {
     }
 
     // Allocated cell no longer holds needed data, drop the inner data
-    fn deallocate(&mut self, item: Self::Handle) {
+    fn deallocate(&mut self, item: Self::Handle<'a>) {
         // self.atom_hashes.remove(unsafe { &item.atom.get_ref().get_hash() });
         // self.num_dead += 1;
 

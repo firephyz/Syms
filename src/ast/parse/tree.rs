@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::clone::Clone;
 use std::mem::MaybeUninit;
 
-use super::allocator::{ALLOC, AllocHandle, AllocSymbol, AllocBranch, AllocError};
+use super::allocator::{ALLOC, AllocError};
 use super::tokenizer::{TokenIterator, Token};
 use super::ALLOC;
 use crate::ast::error::SourceASTError;

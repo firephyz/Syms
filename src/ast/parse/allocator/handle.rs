@@ -10,7 +10,7 @@ use super::object::Allocable;
 // General allocation handle object with reference counting enabled.
 // Derefs to T that is owned and allocated by A.
 ///////////////////////////////////////////////////////////////////////////////
-pub struct AllocHandle<'a, T, A> {
+pub(super) struct AllocHandle<'a, T, A> {
     alloc: &'a A,
     index: usize,
     phantom: PhantomData<T>,
@@ -35,8 +35,8 @@ impl<'a, T, A> Debug for AllocHandle<'a, T, A> {
     }
 }
 
-impl<'h, 'a: 'h, T: Allocable, A: Allocator<'h, 'a, T, A>> Deref for AllocHandle<'a, T, A> {
-    type Target = T;
+impl<'a, T: Allocable, A: Allocator<'a, T>> Deref for AllocHandle<'a, A, T> {
+    type Target = A::Object;
 
     fn deref(&self) -> &Self::Target {
         const size : usize = std::mem::size_of::<*const u32>();
