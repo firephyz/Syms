@@ -1,0 +1,71 @@
+beq:
+  stack:
+    sym1
+    sym2
+    cmd: field
+    arg
+
+  if sym1 == sym2 run cmd, else skip
+
+cons:
+  stack:
+    node1
+    node2
+
+car:
+  stack:
+    node
+
+cdr:
+  stack:
+    node
+
+atom:
+  stack:
+    
+
+stk:
+  stack:
+    rel-offset
+
+field:
+  stack:
+    args: digit list or other field
+
+
+(0)
+(eval eval)
+
+
+eval    beq
+eval
+eval
+(1)
+arg
+
+subfunction to place numbers on stack
+
+write bootstrap source in symbolic instructions
+  - implements symbolic instructions as fields
+  - prepares stack with these definitions
+  - does a computation
+translate this source to bytecode
+load input & bytecode onto stack along with extra bits to use beq
+execute beq
+
+execute beq (with necessary extra stack bits)
+loads bytecode (with input on stack)
+  - numerical encoding of 'machine' instruction identifiers
+    - cons calls bytecode cons, etc.
+bytecode
+  - begins to define instruction identifiers as bytecode on stack, beq last?
+uses symbolic (symbol <bytecode location>) pairs instead of bytecode
+  - bytecode loads symbolic number
+  - bytecode issues stk to fetch argument
+  - bytecode loads symbolic number
+  - bytecode issues stk to fetch function
+  - loads misc args to call
+  - issues beq to execute symbolic instruction
+
+
+symbolic beq operates on symbolic input

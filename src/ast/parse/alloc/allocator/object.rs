@@ -2,42 +2,33 @@ use std::default::Default;
 use std::clone::Clone;
 use std::ops::Deref;
 use std::cell::Cell;
-use std::fmt::Debug;
-use std::marker::Sized;
+use std::fmt::{Display, Debug, Formatter};
 
-use super::Allocator;
-
-///////////////////////////////////////////////////////////////////////////////
-// Reference counted objects
-///////////////////////////////////////////////////////////////////////////////
-pub trait RefCount {
-    fn inc_ref(&self);
-    fn dec_ref(&self);
-    fn ref_count(&self) -> u32;
-}
-
-pub(super) trait Allocable {
-    type Alloc<'a>: Allocator<'a, Self>;
-    type InitData<'a>;
-
-    fn init(data: Self::InitData<'_>) -> Self where Self: Sized;
-}
+use super::traits::{Allocable, RefCount};
 
 ///////////////////////////////////////////////////////////////////////////////
 // Objects to be allocated. Reference counted for garbage collection.
 ///////////////////////////////////////////////////////////////////////////////
-#[derive(Debug)]
-pub(super) struct AllocObject<T> {
+pub(in crate::ast::parse::alloc) struct AllocObject<T> {
     obj: T,
     count: Cell<u32>,
 }
 
 impl<T: Allocable> AllocObject<T> {
-    fn new(data: T::InitData<'_>) -> Self {
+    pub fn new(data: T::InitData<'_>) -> Self {
         AllocObject {
             obj: T::init(data),
             count: Cell::new(0),
         }
+    }
+}
+
+impl<T: Display> Debug for AllocObject<T> {
+    fn fmt(&self, fmt: &mut Formatter) -> std::fmt::Result {
+        fmt.debug_struct("AllocObject")
+           .field("obj", &format!("{}", self.obj))
+           .field("count", unsafe {&*self.count.as_ptr()})
+           .finish()
     }
 }
 
