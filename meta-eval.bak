@@ -40,9 +40,8 @@
 
 (define (atom? expr) (not (pair? expr)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Eval and special form & function defs below
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ; when to eval macro results? During expansion (immediately after) or after expansion in meval
 
@@ -58,8 +57,7 @@
                  (macro-env (extend-env macro-lenv (make-frame macro-args (cdr expr)))))
             (meval (meval macro-expander macro-env) env)))))
 
-; can this macro frame be safely replaced by the evaled frame made below?
-; The new frame show perfectly shadow the macro frame.
+;; can this macro frame be safely replaced by the evaled frame made below? The new frame show perfectly shadow the macro frame.
 (define lambda-def
   `(,(lambda (macro-env)
        (lambda (closure-env)
@@ -73,51 +71,17 @@
              ,closure-env))))
     (vars body)
     ()))
-
-;;; can this be implemented once macro is defined?
-;(define if-def
-;  (let ((arg-names '(cond then else)))
-;    `(,(lambda (macro-env)
-;         (lambda (dyn-env)
-;           (let ((bindings (evlis arg-names macro-env)))
-;             (if (eq? (meval (car bindings) dyn-env) 'T)
-;                 (meval (cadr bindings) dyn-env)
-;                 (meval (caddr bindings) dyn-env)))))
-;      ,arg-names
-;      ())))
       
-;(define cons-def
-;  (let ((arg-names '(c0 c1)))
-;    `(,(lambda (macro-env)
-;         (let* ((bindings (evlis arg-names macro-env))
-;                (builtin (lambda (env)
-;                           (let ((values (evlis bindings env)))
-;                             (cons (car values) (cadr values))))))
-;           `((lambda ,arg-names ,builtin) ,@bindings)))
-;      ,arg-names
-;      ())))
-
-;(define eq?-def
-;  (let ((arg-names '(c0 c1)))
-;    `(,(lambda (macro-env)
-;         (let* ((bindings (evlis arg-names macro-env))
-;                (builtin (lambda (env)
-;                           (let ((values (evlis bindings env)))
-;                             (if (eq? (car values) (cadr values))
-;                                 'T
-;                                 'F)))))
-;           `((lambda ,arg-names ,builtin) ,@bindings)))
-;      ,arg-names
-;      ())))
-
-(define quote-def
-  (let ((arg-names '(expr)))
+(define cons-def
+  (let ((arg-names '(c0 c1)))
     `(,(lambda (macro-env)
-         (lambda (dyn-env)
-           (let ((bindings (evlis arg-names macro-env)))
-             (car bindings))))
+         (let* ((bindings (evlis arg-names macro-env))
+                (builtin (lambda (env)
+                           (let ((values (evlis bindings env)))
+                             (cons (car values) (cadr values))))))
+           `((lambda ,arg-names ,builtin) ,@bindings)))
       ,arg-names
-      '())))
+      ())))
 ;
 ;
 ;;; lambda, eval in first, lexical environments. eval in second, dynamic environments
@@ -141,16 +105,30 @@
 ;      ,(lambda (macro-env macro-args) (extend-env macro-env (make-frame args macro-args)))))))
 ;
 ;
+(define quote-def
+  (let ((arg-names '(expr)))
+    `(,(lambda (macro-env)
+         (lambda (dyn-env)
+           (let ((bindings (evlis arg-names macro-env)))
+             (car bindings))))
+      ,arg-names
+      '())))
 
-(define builtins `((lambda ,lambda-def) (quote ,quote-def)))
+;(macro (cons x-expr y-expr)
+;  ((lambda (x y)
+;     (cons-builtin x y)) x-expr y-expr))
+        
+;;; quote
+;(lambda (expr env)
+;  (car expr))
+
+;(define builtins `((cons ,cons) (car ,car) (cdr ,cdr) (eq? ,eq?) (atom? ,(lambda (x) (not (pair? x))))))
+(define builtins `((cons ,cons-def) (lambda ,lambda-def) (quote ,quote-def)))
+;(define defs `((macro ,macro-def) (lambda ,lambda-def) (num 5) (cons ,(make-cons-def builtins))))
 (define defs `((a 1) (b 2)))
 (define global `(,defs ,builtins))
 
-;(meval '((lambda (x y)
-;           (if (eq? x y)
-;               x
-;               (cons x y))
-;         a (quote b)))
-;       global)
-
-(meval '((lambda (x) x) (quote a)) global)
+; (meval '((macro (quote thing) thing) ((lambda (x) x) (quote hello))) global)
+; (meval '((lambda (x) x) num) global)
+(meval '((lambda (x y) (cons x y)) a (quote b)) global)
+; (macro-bind '((x y) z) '((hi bye) hello))
