@@ -69,25 +69,50 @@
       ,args
       ())))
 
+;; Must replace macro keywords with hygenic symbols for this expansion.
+;; Avoids sub-macro actions so we don't accidentally replace keywords for that sub-macro
+(define (make-hygenic ident-map action)
+  ;; Maps a function to sub-macro actions. Used here to make opaque or visable the macro action.
+  (define (map-sub-macros func code)
+    (if (pair? code)
+        (if (eq? 'macro (car code))
+            (append (take code 3)
+                    (list (func (car (list-tail code 3)))))
+            (cons (map-sub-macros func (car code))
+                  (map-sub-macros func (cdr code))))
+        code))
+  (let* ((code-ast (map-sub-macros ;; make sub-macros opaque
+                    (lambda (macro) (lambda () macro))
+                    action))
+         (hygenic-ast (replace-atoms ident-map code-ast)) ;; replace macro keywords
+         (code-ast-expanded (map-sub-macros ;; make sub-macros visable again
+                             (lambda (macro) (macro))
+                             hygenic-ast)))
+    code-ast-expanded))
+
 ; macro variable expansions, quote and unquote or implicitly based on meta-level of binding?
 ; meta-level as part of type?
-(define test '())
+(define meta-namespace (variable-reference->namespace (#%variable-reference evlis)))
 (define-syntax-rule (macro form enclosing-env action)
-  (let* ((menv-ident (string->symbol "macro-env-0"))
-         (denv-ident (string->symbol "dyn-env-0"))
-         (binds-ident (string->symbol "macro-binds-0"))
-         (hygenic-action (replace-atoms `((macro-env ,menv-ident)
-                                          (dyn-env ,denv-ident)
-                                          (macro-bindings ,binds-ident))
-                                        action))
+  ;; Generates hygenic identifiers to replace macro keywords in the macro expansion.
+  ;; Returns a 'macro-object' for use in meval.
+  (let* ((menv-ident (gensym))
+         (denv-ident (gensym))
+         (binds-ident (gensym))
+         (hygenic-ident-map `((*menv* ,menv-ident)
+                              (*denv* ,denv-ident)
+                              (*binds* ,binds-ident)))
+         (hygenic-action (make-hygenic hygenic-ident-map action))
+         (resolved-enclosing-env (make-hygenic hygenic-ident-map enclosing-env))
          (macro-code-ast `(lambda (,menv-ident)
                             (lambda (,denv-ident)
-                              (let ((,binds-ident (evlis (cdr form) ,menv-ident)))
+                              (let ((,binds-ident (evlis ',(cdr form) ,menv-ident)))
                                 ,hygenic-action)))))
-    (begin (set! test (namespace-mapped-symbols (variable-reference->namespace (#%variable-reference menv-ident))))
-           `(,(eval macro-code-ast (empty-namespace))
-             ,(cdr form)
-             ,enclosing-env))))
+    (begin (printf "Macro ~n")
+           (pretty-print macro-code-ast)
+           `(,(eval macro-code-ast meta-namespace)
+      ,(cdr form)
+      ,resolved-enclosing-env))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Eval and special form & function defs below
@@ -106,13 +131,13 @@
                  (macro-env (extend-env macro-lenv (make-frame macro-args (cdr expr)))))
             (meval (meval macro-expander macro-env) env)))))
 
-;(define lambda-def
-;  (macro '(lambda vars body) '()
-;         (macro `(closure ,@(car macro-bindings)) closure-env
-;                  (lambda (lex-env dyn-env closure-bindings)
-;                    (meval (cadr macro-bindings)
-;                           (extend-env lex-env (make-frame (car macro-bindings)
-;                                                           (evlis closure-bindings dyn-env)))))))))
+(define lambda-def
+  (macro '(lambda vars body) '()
+         `(let* ((closure-body (cadr *binds*))
+                 (closure-binds (car *binds*))
+                 (closure-env *denv*))
+            (macro `(() ,@closure-binds) *denv* ;; create anonymous macro that takes the closure arguments, evaluates them, extends the lexical environment and calls eval on the body
+                   `(meval ',closure-body (extend-env ',closure-env (make-frame ',closure-binds (evlis *binds* *denv*))))))))
 
 ;; can this be implemented once macro is defined?
 ;(define if-def
@@ -124,7 +149,7 @@
 
 (define quote-def
   (macro '(quote expr) '()
-         '(car macro-bindings)))
+         '(car *binds*)))
 
 ;(define cons-def  (builtin '(cons c0 c1) (lambda (values) (cons (car values) (cadr values)))))
 ;(define car-def   (builtin '(car c0)     (lambda (values) (car (car values)))))
@@ -156,11 +181,11 @@
 ;
 
 ;(define builtins `((cons ,cons-def) (car ,car-def) (cdr ,cdr-def) (eq? ,eq?-def) (atom? ,atom?-def) (if ,if-def) (lambda ,lambda-def) (quote ,quote-def)))
-(define builtins `((quote ,quote-def)))
+(define builtins `((lambda ,lambda-def) (quote ,quote-def)))
 (define defs `((a one) (b two)))
 (define global `(,defs ,builtins))
 
 ;(meval '((lambda (x) (if (atom? (quote (b))) x (cons x x))) (quote a))
 ;       global)
 
-(meval '(quote hi) global)
+(meval '((lambda (x y) y) (quote a) (quote b)) global)
