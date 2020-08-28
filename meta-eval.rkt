@@ -57,18 +57,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Macros
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(define-syntax-rule (builtin form native-action)
-  (let ((func (car form))
-        (args (cdr form)))
-    `(,(lambda (macro-env)
-         (let* ((bindings (evlis args macro-env))
-                (builtin (lambda (env)
-                           (let ((values (evlis args env)))
-                             (native-action values)))))
-           `((lambda ,args ,builtin) ,@bindings)))
-      ,args
-      ())))
-
+(define meta-namespace (variable-reference->namespace (#%variable-reference replace-atoms)))
 ;; Must replace macro keywords with hygenic symbols for this expansion.
 ;; Avoids sub-macro actions so we don't accidentally replace keywords for that sub-macro
 (define (make-hygenic ident-map action)
@@ -90,29 +79,46 @@
                              hygenic-ast)))
     code-ast-expanded))
 
+;; macro for builtin functions
+;; adjust final bind-idents unquote to use meta-macro binding rather than expanded binding
+(define-syntax-rule (builtin form native-action)
+  (macro form () (let* ((builtin-native (lambda (cdr 'form) native-action))
+                          (builtin-procedure (lambda (benv)
+                                               (let ((values (evlis *args* benv)))
+                                                 (apply builtin-native values))))
+                          (calling-closure `(lambda ,*args* ,builtin-procedure)))
+                     (meval `(,calling-closure ,@*binds*) *denv*))))
+
 ; macro variable expansions, quote and unquote or implicitly based on meta-level of binding?
 ; meta-level as part of type?
-(define meta-namespace (variable-reference->namespace (#%variable-reference evlis)))
+; swap builtin and macro for builtin being defined first and macro second?
+; make sure bindings introduced in macro expansion and in evaluation are hygenic.
+; difference between unquote and eval?
+
+; macro for special forms
 (define-syntax-rule (macro form enclosing-env action)
   ;; Generates hygenic identifiers to replace macro keywords in the macro expansion.
   ;; Returns a 'macro-object' for use in meval.
   (let* ((menv-ident (gensym))
          (denv-ident (gensym))
+         (args-ident (gensym))
          (binds-ident (gensym))
          (hygenic-ident-map `((*menv* ,menv-ident)
                               (*denv* ,denv-ident)
+                              (*args* ,args-ident)
                               (*binds* ,binds-ident)))
-         (hygenic-action (make-hygenic hygenic-ident-map action))
-         (resolved-enclosing-env (make-hygenic hygenic-ident-map enclosing-env))
+         (hygenic-action (make-hygenic hygenic-ident-map 'action))
+         (action-callback `(lambda ,(cdr 'form) ,hygenic-action))
+         (resolved-enclosing-env (make-hygenic hygenic-ident-map 'enclosing-env))
          (macro-code-ast `(lambda (,menv-ident)
                             (lambda (,denv-ident)
-                              (let ((,binds-ident (evlis ',(cdr form) ,menv-ident)))
-                                ,hygenic-action)))))
-    (begin (printf "Macro ~n")
-           (pretty-print macro-code-ast)
-           `(,(eval macro-code-ast meta-namespace)
-      ,(cdr form)
-      ,resolved-enclosing-env))))
+                              (let* ((,args-ident ',(cdr 'form))
+                                     (,binds-ident (evlis ,args-ident ,menv-ident)))
+                                (apply ,action-callback ,binds-ident))))))
+    `(,(begin (pretty-print macro-code-ast)
+              (eval macro-code-ast meta-namespace))
+      ,(cdr 'form)
+      ,resolved-enclosing-env)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Eval and special form & function defs below
@@ -131,31 +137,27 @@
                  (macro-env (extend-env macro-lenv (make-frame macro-args (cdr expr)))))
             (meval (meval macro-expander macro-env) env)))))
 
+;; create anonymous macro that takes the closure arguments, evaluates them, extends the lexical environment and calls eval on the body
 (define lambda-def
-  (macro '(lambda vars body) '()
-         `(let* ((closure-body (cadr *binds*))
-                 (closure-binds (car *binds*))
-                 (closure-env *denv*))
-            (macro `(() ,@closure-binds) *denv* ;; create anonymous macro that takes the closure arguments, evaluates them, extends the lexical environment and calls eval on the body
-                   `(meval ',closure-body (extend-env ',closure-env (make-frame ',closure-binds (evlis *binds* *denv*))))))))
+  (macro (lambda vars body) ()
+         (let* ((macro-body `(macro (() ,vars) ,*denv* (meval ,body (extend-env ,*denv* (make-frame ,vars (evlis *binds* *denv*)))))))
+           (eval macro-body meta-namespace))))
 
 ;; can this be implemented once macro is defined?
-;(define if-def
-;  (macro '(if cond then else) '()
-;         (lambda (macro-env dyn-env macro-bindings)
-;           (if (eq? (meval (car macro-bindings) dyn-env) 'T)
-;               (meval (cadr macro-bindings) dyn-env)
-;               (meval (caddr macro-bindings) dyn-env)))))
+(define if-def
+  (macro (if cond then else) ()
+         (if (eq? (meval cond *denv*) 'T)
+             (meval then *denv*)
+             (meval else *denv*))))
 
 (define quote-def
-  (macro '(quote expr) '()
-         '(car *binds*)))
+  (macro (quote expr) () 'expr))
 
-;(define cons-def  (builtin '(cons c0 c1) (lambda (values) (cons (car values) (cadr values)))))
-;(define car-def   (builtin '(car c0)     (lambda (values) (car (car values)))))
-;(define cdr-def   (builtin '(cdr c0)     (lambda (values) (cdr (car values)))))
-;(define eq?-def   (builtin '(eq? s0 s1)  (lambda (values) (if (eq? (car values) (cadr values)) 'T 'F))))
-;(define atom?-def (builtin '(atom? s0)   (lambda (values) (if (not (pair? (car values))) 'T 'F))))
+(define cons-def  (builtin (cons c0 c1) (cons c0 c1)))
+(define car-def   (builtin (car c0)     (caar c0)))
+(define cdr-def   (builtin (cdr c0)     (cdar c0)))
+(define eq?-def   (builtin (eq? s0 s1)  (if (eq? s0 s1) 'T 'F)))
+(define atom?-def (builtin (atom? s0)   (if (not (pair? s0)) 'T 'F)))
 
 
 ;;; lambda, eval in first, lexical environments. eval in second, dynamic environments
@@ -180,12 +182,18 @@
 ;
 ;
 
-;(define builtins `((cons ,cons-def) (car ,car-def) (cdr ,cdr-def) (eq? ,eq?-def) (atom? ,atom?-def) (if ,if-def) (lambda ,lambda-def) (quote ,quote-def)))
-(define builtins `((lambda ,lambda-def) (quote ,quote-def)))
-(define defs `((a one) (b two)))
+(define builtins `((cons ,cons-def) (car ,car-def) (cdr ,cdr-def) (eq? ,eq?-def) (atom? ,atom?-def) (if ,if-def) (lambda ,lambda-def) (quote ,quote-def)))
+;(define builtins `((lambda ,lambda-def) (quote ,quote-def)))
+(define defs `())
 (define global `(,defs ,builtins))
 
 ;(meval '((lambda (x) (if (atom? (quote (b))) x (cons x x))) (quote a))
 ;       global)
 
-(meval '((lambda (x y) y) (quote a) (quote b)) global)
+;(meval '((lambda (x y) (if (atom? x) (if (eq? x y) x (cons x y)) (cons x y))) (cons (quote a) (quote a)) (quote b)) global)
+(meval '((lambda (x y) (cons x y)) (quote a) (quote b)) global)
+;(meval '(quote a) global)
+
+(define-syntax test
+  (syntax-rules ()
+    [(test a b) (cons 'a 'b)]))
