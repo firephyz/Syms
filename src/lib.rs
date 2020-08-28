@@ -10,10 +10,15 @@
 #![feature(fn_traits)]
 #![feature(const_transmute)]
 
+// #[macro_use]
+// extern crate enum_display_derive;
+
 pub mod ast;
 
 #[cfg(test)]
 mod tests {
+    use super::ast;
+
     #[test]
     fn test() {
         ast::parse::tests::test();

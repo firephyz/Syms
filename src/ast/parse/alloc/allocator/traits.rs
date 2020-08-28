@@ -1,9 +1,11 @@
+use super::object::AllocObject;
+
 ///////////////////////////////////////////////////////////////////////////////
 // Allocator trait that implements allocating general objects.
 // Allocates Object handles that originate from Alloc.
 ///////////////////////////////////////////////////////////////////////////////
-pub(super) trait Allocator<'a, Obj>
-  where Obj: Allocable + ?Sized
+pub trait Allocator<'a, Obj>
+  where Obj: Allocable
 {
     //type InitData = <Object as Allocable>::InitData;
     //type Handle = AllocHandle<'h, Object, Alloc>;
@@ -16,19 +18,19 @@ pub(super) trait Allocator<'a, Obj>
 }
 
 // Allocators that actually own the resources
-pub(super) trait PrimAllocator<'a, Obj> : Allocator<'a, Obj>
-  where Obj: Allocable + ?Sized
+pub trait PrimAllocator<'a, Obj> : Allocator<'a, Obj>
+  where Obj: Allocable + Sized
 {
-    type Object: Allocable;
-    type Handle<'h>;
+    //type Object: Allocable;
+    //type Handle<'h>;
 
-    fn get(&self, index: usize) -> &AllocObject<Self::Object>;
+    fn get(&self, index: usize) -> &AllocObject<Obj>;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Reference counted objects
 ///////////////////////////////////////////////////////////////////////////////
-pub(super) trait RefCount {
+pub trait RefCount {
     fn inc_ref(&self);
     fn dec_ref(&self);
     fn ref_count(&self) -> u32;
@@ -37,9 +39,11 @@ pub(super) trait RefCount {
 ///////////////////////////////////////////////////////////////////////////////
 // Types allocable by a impl PrimAllocator
 ///////////////////////////////////////////////////////////////////////////////
-pub(in crate::ast::parse::alloc) trait Allocable {
+pub trait Allocable
+  where Self: Sized
+{
     type Alloc<'a>: PrimAllocator<'a, Self>;
     type InitData<'a>;
 
-    fn init(data: Self::InitData<'_>) -> Self where Self: Sized;
+    fn init(data: Self::InitData<'_>) -> Self;
 }

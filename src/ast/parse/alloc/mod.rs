@@ -1,10 +1,12 @@
-use std::default::Default;
-use std::ops::{Deref};
+use std::ops::Deref;
 use std::fmt::{Display, Formatter, Debug};
+
+mod primitives;
+use primitives::Symbol;
 
 mod allocator;
 pub use allocator::AllocError;
-use allocator::{AllocatorInstance, SymbolAllocator, AllocHandle, AllocObject};
+use allocator::{AllocatorInstance, SymbolAllocator, AllocHandle, AllocObject, Allocator};
 
 ///////////////////////////////////////////////////////////////////////////////
 // Global allocator
@@ -25,7 +27,7 @@ fn get_allocator<'a>() -> &'a mut AllocatorInstance {
 // Public allocated symbol
 ///////////////////////////////////////////////////////////////////////////////
 #[derive(Debug, Clone)]
-pub(in crate::ast) struct AllocSymbol<'a> {
+pub struct AllocSymbol<'a> {
     handle: AllocHandle<'a, Symbol, SymbolAllocator>,
 }
 
@@ -45,7 +47,7 @@ impl<'a> Deref for AllocSymbol<'a> {
 impl AllocSymbol<'_> {
     pub fn new(string: &str) -> Result<Self, AllocError> {
         Ok(AllocSymbol {
-            handle: unsafe { get_allocator().allocate(string)? },
+            handle: get_allocator().allocate(string)?,
         })
     }
 }
@@ -53,8 +55,12 @@ impl AllocSymbol<'_> {
 ///////////////////////////////////////////////////////////////////////////////
 // Tests
 ///////////////////////////////////////////////////////////////////////////////
-pub(super) mod tests {
-    pub fn test(symbols: impl Iterator<Result<AllocSymbol, AllocError>>) {
+pub mod tests {
+    use super::{AllocSymbol, AllocError};
+
+    pub fn test<'a>(symbols: impl Iterator<Item=&'a Result<AllocSymbol<'a>, AllocError>>) {
+        println!("Objects:\n");
+
         // Gather object refs
         let objects = symbols.map(|sym| {
             sym.as_deref()

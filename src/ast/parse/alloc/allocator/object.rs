@@ -9,7 +9,7 @@ use super::traits::{Allocable, RefCount};
 ///////////////////////////////////////////////////////////////////////////////
 // Objects to be allocated. Reference counted for garbage collection.
 ///////////////////////////////////////////////////////////////////////////////
-pub(in crate::ast::parse::alloc) struct AllocObject<T> {
+pub struct AllocObject<T> {
     obj: T,
     count: Cell<u32>,
 }

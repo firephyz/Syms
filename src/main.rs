@@ -18,7 +18,7 @@ extern crate syms;
 //     println!("{:?}", &ast);
 // }
 
-use syms::ast::parse::test;
+use syms::ast::parse::tests::test;
 
 fn main() {
     // let mut alloc = AllocatorInstance::new();

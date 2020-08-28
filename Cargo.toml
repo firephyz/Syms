@@ -13,4 +13,5 @@ name = "syms"
 
 [dependencies]
 string_cache = "0.8"
+enum-display-derive = "0.1"
 static_assertions = "0.1"

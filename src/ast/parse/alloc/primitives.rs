@@ -9,11 +9,11 @@ use std::default::Default;
 ///////////////////////////////////////////////////////////////////////////////
 use string_cache::DefaultAtom;
 
-use super::allocator::traits::Allocable;
+use super::allocator::Allocable;
 use super::allocator::SymbolAllocator;
 
 #[derive(Debug)]
-pub(super) struct Symbol {
+pub struct Symbol {
     atom: MaybeUninit<DefaultAtom>,
 }
 
@@ -31,7 +31,7 @@ impl Clone for Symbol {
             MaybeUninit::zeroed()
         }
         else {
-            MaybeUninit::new(unsafeuse string_cache::DefaultAtom; {self.atom.get_ref().clone()})
+            MaybeUninit::new(unsafe {self.atom.get_ref().clone()})
         };
 
         Symbol {
@@ -69,7 +69,7 @@ impl Allocable for Symbol {
 
     fn init(data: Self::InitData<'_>) -> Self {
         Symbol {
-            atom: MaybeUninit::new(unsafe { DefaultAtom::from(data) }),
+            atom: MaybeUninit::new(DefaultAtom::from(data)),
         }
     }
 }

@@ -1,5 +1,6 @@
 use std::vec::Vec;
 use std::collections::HashMap;
+// use std::fmt::Display;
 
 use string_cache::DefaultAtom;
 
@@ -10,13 +11,16 @@ mod object;
 pub use object::AllocObject;
 
 mod traits;
-use traits::{Allocator, PrimAllocator};
+use traits::PrimAllocator;
+pub use traits::{Allocator, Allocable, RefCount};
+
+use super::primitives::Symbol;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Allocation errors
 ///////////////////////////////////////////////////////////////////////////////
 #[derive(Debug)]
-pub(super) enum AllocError {
+pub enum AllocError {
     UniqueSymbolCap,
     BranchCap,
 }
@@ -24,7 +28,7 @@ pub(super) enum AllocError {
 ///////////////////////////////////////////////////////////////////////////////
 // General object allocator
 ///////////////////////////////////////////////////////////////////////////////
-pub(super) struct AllocatorInstance {
+pub struct AllocatorInstance {
     symbols: SymbolAllocator,
 //    branches: BranchAllocator,
 }
@@ -32,7 +36,7 @@ pub(super) struct AllocatorInstance {
 impl AllocatorInstance {
     pub fn new() -> Self {
         AllocatorInstance {
-            symbols: SymbolAllocator::new(4),
+            symbols: SymbolAllocator::new(100),
 //            branches: BranchAllocator::new(1000),
         }
     }
@@ -68,7 +72,7 @@ impl<'a> Allocator<'a, Symbol> for AllocatorInstance {
 ///////////////////////////////////////////////////////////////////////////////
 // Allocator for symbols
 ///////////////////////////////////////////////////////////////////////////////
-pub(super) struct SymbolAllocator {
+pub struct SymbolAllocator {
     cells: Vec<AllocObject<Symbol>>,
     free: Vec<usize>,
     used: Vec<usize>,
@@ -156,7 +160,7 @@ impl<'a> Allocator<'a, Symbol> for SymbolAllocator {
 }
 
 impl<'a> PrimAllocator<'a, Symbol> for SymbolAllocator {
-    fn get(&self, index: usize) -> &AllocObject<Self::Object> {
+    fn get(&self, index: usize) -> &AllocObject<Symbol> {
         &self.cells[index]
     }
 }

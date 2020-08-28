@@ -22,7 +22,7 @@ cdr:
 
 atom:
   stack:
-    
+
 
 stk:
   stack:
@@ -69,3 +69,41 @@ uses symbolic (symbol <bytecode location>) pairs instead of bytecode
 
 
 symbolic beq operates on symbolic input
+
+(define eval (expr env)
+  (if (atom? expr)
+      (env 'lookup a)
+      (let ((left (car expr))
+            (right (cdr expr))
+            (mdef (eval left env)))
+        (eval (eval left env) env))))
+        
+        (eval (macro-body mdef) (extend-env env (macro-bind (macro-pattern mdef) right))))))
+
+            ;; (new-env) (eval (eval left env) (extend-env env '((pattern ,(car right)) (body ,(cdar right))))))
+        (eval body new-env))))
+
+               ^ lambda (body env) (eval body env)
+
+(macro '((macro form body)
+         '(cons (eval 'form env) (eval 'body env))))
+
+(macro (quote body) body)
+
+(macro (test ,match) ,body)
+
+(define lambda (macro (args body)))
+
+(var ((x y z) ,body) env)
+
+(define lambda (macro (args body)
+(eval body (extend-env env (zip arg-idents (evlis args env))))
+
+(eval body (extend-env env (zip arg-idents (evlis args env))))
+
+push ()
+push <atom field>
+push <eq field>
+push <cons field>
+push <car field>
+push <cdr field>
