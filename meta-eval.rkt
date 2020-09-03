@@ -82,7 +82,7 @@
 ;; macro for builtin functions
 ;; adjust final bind-idents unquote to use meta-macro binding rather than expanded binding
 (define-syntax-rule (builtin form native-action)
-  (macro form () (let* ((builtin-native (lambda (cdr 'form) native-action))
+  (macro form '() (let* ((builtin-native (lambda (cdr 'form) native-action))
                           (builtin-procedure (lambda (benv)
                                                (let ((values (evlis *args* benv)))
                                                  (apply builtin-native values))))
@@ -109,7 +109,7 @@
                               (*binds* ,binds-ident)))
          (hygenic-action (make-hygenic hygenic-ident-map 'action))
          (action-callback `(lambda ,(cdr 'form) ,hygenic-action))
-         (resolved-enclosing-env 'enclosing-env)
+         (resolved-enclosing-env enclosing-env)
          (macro-code-ast `(lambda (,menv-ident)
                             (lambda (,denv-ident)
                               (let* ((,args-ident ',(cdr 'form))
@@ -140,7 +140,12 @@
             (meval (meval macro-expander macro-env) env)))))
 
 (define macro-def
-  '())
+  (macro (macro form body) '()
+         (macro (() expr) *denv*
+                (meval expr (extend-env (cdr *menv*)
+                                        (make-frame `(,(car form))
+                                                    (macro (() ,@(cdr form)) *denv*
+                                                           (meval body (extend-env (cdr *menv*) (make-frame (cdr form) *binds*))))))))))
 
 ;; create anonymous macro that takes the closure arguments, evaluates them, extends the lexical environment and calls eval on the body
 ;; should this macro use a meta-macro in its expansion? Reason for not: ...
@@ -148,19 +153,21 @@
 ;; by the actual argument value bindings in the dynamic environment once the closure is called. Those
 ;; macro arguments are no longer needed so toss them away.
 (define lambda-def
-  (macro (lambda vars body) ()
-         (let* ((macro-body `(macro (() ,@vars) ,*denv* (meval ',body (extend-env (cdr *menv*) (make-frame ',vars (evlis *binds* *denv*)))))))
-           (eval macro-body meta-namespace))))
+  (macro (lambda vars body) '()
+         ;(let* ((macro-body `(macro (() ,@vars) ,*denv* (meval ',body (extend-env (cdr *menv*) (make-frame ',vars (evlis *binds* *denv*)))))))
+         (let ((mform `(() ,@vars)))
+           ;(eval macro-body meta-namespace))))
+           (macro `(() ,@vars) *denv* (meval body (extend-env (cdr *menv*) (make-frame vars (evlis *binds* *denv*))))))))
 
 ;; can this be implemented once macro is defined?
 (define if-def
-  (macro (if cond then else) ()
+  (macro (if cond then else) '()
          (if (eq? (meval cond *denv*) 'T)
              (meval then *denv*)
              (meval else *denv*))))
 
 (define quote-def
-  (macro (quote expr) () expr))
+  (macro (quote expr) '() expr))
 
 (define cons-def  (builtin (cons c0 c1) (cons c0 c1)))
 (define car-def   (builtin (car c0)     (caar c0)))
@@ -201,4 +208,5 @@
 
 ;(meval '((lambda (x y) (if (atom? x) (if (eq? x y) x (cons x y)) (cons x y))) (cons (quote a) (quote a)) (quote b)) global)
 (meval '((lambda (x y) (cons x y)) (quote a) (quote b)) global)
+;(meval '((macro (test x) (cons x x)) (test a)) global)
 ;(meval '(quote a) global)
