@@ -109,13 +109,13 @@
                               (*binds* ,binds-ident)))
          (hygenic-action (make-hygenic hygenic-ident-map 'action))
          (action-callback `(lambda ,(cdr 'form) ,hygenic-action))
-         (resolved-enclosing-env (make-hygenic hygenic-ident-map 'enclosing-env))
+         (resolved-enclosing-env 'enclosing-env)
          (macro-code-ast `(lambda (,menv-ident)
                             (lambda (,denv-ident)
                               (let* ((,args-ident ',(cdr 'form))
                                      (,binds-ident (evlis ,args-ident ,menv-ident)))
-                                (apply ,action-callback ,binds-ident))))))
-    `(,(begin (pretty-print macro-code-ast)
+                                (begin (printf "EXPAND: ") (pretty-print ',action-callback) (apply ,action-callback ,binds-ident)))))))
+    `(,(begin ;(pretty-print macro-code-ast)
               (eval macro-code-ast meta-namespace))
       ,(cdr 'form)
       ,resolved-enclosing-env)))
@@ -129,7 +129,9 @@
   (if (procedure? expr)
       (expr env)
       (if (atom? expr)
-          (lookup expr env)
+          (begin (printf "LOOKUP: ")
+                 (pretty-print expr)
+                 (lookup expr env))
           (let* ((macro (meval (car expr) env))
                  (macro-expander (car macro))
                  (macro-args (cadr macro))
@@ -137,10 +139,17 @@
                  (macro-env (extend-env macro-lenv (make-frame macro-args (cdr expr)))))
             (meval (meval macro-expander macro-env) env)))))
 
+(define macro-def
+  '())
+
 ;; create anonymous macro that takes the closure arguments, evaluates them, extends the lexical environment and calls eval on the body
+;; should this macro use a meta-macro in its expansion? Reason for not: ...
+;; closure macro environment will contain closure-macro bindings for arguments that are then shadowed
+;; by the actual argument value bindings in the dynamic environment once the closure is called. Those
+;; macro arguments are no longer needed so toss them away.
 (define lambda-def
   (macro (lambda vars body) ()
-         (let* ((macro-body `(macro (() ,vars) ,*denv* (meval ,body (extend-env ,*denv* (make-frame ,vars (evlis *binds* *denv*)))))))
+         (let* ((macro-body `(macro (() ,@vars) ,*denv* (meval ',body (extend-env (cdr *menv*) (make-frame ',vars (evlis *binds* *denv*)))))))
            (eval macro-body meta-namespace))))
 
 ;; can this be implemented once macro is defined?
@@ -151,7 +160,7 @@
              (meval else *denv*))))
 
 (define quote-def
-  (macro (quote expr) () 'expr))
+  (macro (quote expr) () expr))
 
 (define cons-def  (builtin (cons c0 c1) (cons c0 c1)))
 (define car-def   (builtin (car c0)     (caar c0)))
@@ -182,7 +191,7 @@
 ;
 ;
 
-(define builtins `((cons ,cons-def) (car ,car-def) (cdr ,cdr-def) (eq? ,eq?-def) (atom? ,atom?-def) (if ,if-def) (lambda ,lambda-def) (quote ,quote-def)))
+(define builtins `((macro ,macro-def) (cons ,cons-def) (car ,car-def) (cdr ,cdr-def) (eq? ,eq?-def) (atom? ,atom?-def) (if ,if-def) (lambda ,lambda-def) (quote ,quote-def)))
 ;(define builtins `((lambda ,lambda-def) (quote ,quote-def)))
 (define defs `())
 (define global `(,defs ,builtins))
@@ -193,7 +202,3 @@
 ;(meval '((lambda (x y) (if (atom? x) (if (eq? x y) x (cons x y)) (cons x y))) (cons (quote a) (quote a)) (quote b)) global)
 (meval '((lambda (x y) (cons x y)) (quote a) (quote b)) global)
 ;(meval '(quote a) global)
-
-(define-syntax test
-  (syntax-rules ()
-    [(test a b) (cons 'a 'b)]))
